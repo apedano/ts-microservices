@@ -1,0 +1,7 @@
+metadata:
+  name: spring-cloud-k8s
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources: ["pods","services","endpoints","configmaps"]
+    verbs: ["get", "list", "watch"]
