@@ -19,4 +19,9 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+            - name: QUOTE_RAPIDAPI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: apikeysecret
+                  key: quoteRapidApiToken
       serviceAccount: ribbon

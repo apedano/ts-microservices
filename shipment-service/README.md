@@ -356,12 +356,81 @@ We will need to define it in the `pom.xml` file under the `kubernetes-maven-plug
 We again use the Maven project’s artifactId to reference both the `ServiceAccount` and `Deployment` names. 
 
 
-Normally, we wouldn’t necessarily store environment-specific configuration data (i.e. ConfigMaps) in the same source code repository as our project, but for the purposes of this tutorial, it’s totally fine. 
-There’s only one last piece of the puzzle to put in place before we can start using the ConfigMap ; 
-we need to tell Spring Cloud Kubernetes the name of the `ConfigMap` to use. 
+##### Create Secrets
+
+In order to pass sensitive values to the application we have to use Secrets
+First create a Service based on an external API call requiring a API token to be used:
+
+```java
+@Service
+public class QuoteService {
+
+    private static final String DEFAULT_QUOTE = "Addhinucchiuni, cugghiennu cuttuni, essennu cu tia, cuttuni cugghia.";
+    private static final String QUOTE_API_URI = "https://quotes15.p.rapidapi.com/quotes/random/";
+    private static final String API_HOST_HEADER = "x-rapidapi-host";
+    private static final String API_HOST = "quotes15.p.rapidapi.com";
+    private static final String USE_QUERY_STRING_HEADER = "useQueryString";
+    private static final String USE_QUERY_STRING = "true";
+    private static final String API_KEY_HEADER = "x-rapidapi-key";
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_2)
+            .build();
+
+
+    @Value("${QUOTE_RAPIDAPI_KEY}")
+    private String rapidApiKey;
+
+    public String getRandomQuote(String languageCode) {
+        //
+    }
+
+
+    private HttpRequest createRequest(String languageCode) {
+        return HttpRequest.newBuilder().uri(URI.create(String.format("%s%s", QUOTE_API_URI, determineQueryString(languageCode))))
+                .header(API_HOST_HEADER, API_HOST)
+                .headers(USE_QUERY_STRING_HEADER, USE_QUERY_STRING)
+                .header(API_KEY_HEADER, rapidApiKey)
+                .GET()
+                .build();
+    }
+    
+}
+```
+As usual the first option is to pass the value in the `application.properties` file
+```properties
+QUOTE_RAPIDAPI_KEY=379d0a3427msh63c49ea08578814p181400jsn2925e4b31883
+```
+
+Now we can add the `/src/main/jkube/api-secret.yml` file
+```yaml
+metadata:
+  name: apikeysecret
+type: Opaque
+data:
+  quoteRapidApiToken: Mzc5ZDBhMzQyN21zaDYzYzQ5ZWEwODU3ODgxNHAxODE0MDBqc24yOTI1ZTRiMzE4ODM=
+```
+
+**IMPORTANT:** remember the value of the secret must be Base64 encoded for type _Opaque_
+
+Now we need to add a reference to the secret in the deployment file
+
+```yaml
+containers:
+        - volumeMounts:
+            - name: config
+              mountPath: /deployments/config
+          env:
+            - name: QUOTE_RAPIDAPI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: apikeysecret
+                  key: quoteRapidApiToken
+```
 
 
 https://medium.com/callibrity/spring-into-kubernetes-d816d65e2dbc
 https://medium.com/twodigits/dynamic-app-configuration-inject-configuration-at-run-time-using-spring-boot-and-docker-ffb42631852a
 https://capgemini.github.io/engineering/externalising-spring-boot-config-with-kubernetes/
 https://github.com/eclipse/jkube/tree/master/quickstarts/maven/external-resources
+https://itnext.io/building-and-deploying-a-weather-web-application-onto-kubernetes-red-hat-openshift-using-eclipse-62bf7c924be4
